@@ -109,15 +109,6 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             }
             break;
 
-            case Opcode::goto_:
-            {
-                auto index = code->code[i + 1] | code->code[i + 2];
-                auto absolute_index = i + index;
-                instruction.appendff("{} ({})"sv, index, absolute_index);
-                i += 2;
-            }
-            break;
-
             case Opcode::goto_w:
             case Opcode::jsr_w:
             {
@@ -129,6 +120,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             }
             break;
 
+            case Opcode::goto_:
             case Opcode::if_acmpeq:
             case Opcode::if_acmpne:
             case Opcode::if_icmpeq:
