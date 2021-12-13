@@ -94,7 +94,9 @@ ErrorOr<MethodDescriptor> MethodDescriptor::try_parse(StringView value)
                 size_t original_descriptor_length;
                 descriptor.m_parameters.append(
                     TRY(FieldDescriptor::try_parse(value.substring_view(i), &original_descriptor_length)));
-                i += original_descriptor_length;
+
+                // -1, because next iteration we're going to +1
+                i += original_descriptor_length - 1;
             }
         }
     }
