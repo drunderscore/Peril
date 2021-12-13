@@ -11,3 +11,7 @@ add_compile_options(-Werror=implicit-fallthrough)
 add_compile_options(-Wno-literal-suffix)
 add_compile_options(-fno-gnu-keywords)
 add_subdirectory(LibJava)
+
+add_executable(javadisassembler javadisassembler.cpp)
+target_link_libraries(javadisassembler PRIVATE Lagom::Core Lagom::Main LibJava)
+target_include_directories(javadisassembler PRIVATE ${PROJECT_SOURCE_DIR})
