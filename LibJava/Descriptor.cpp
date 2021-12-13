@@ -117,14 +117,9 @@ String FieldDescriptor::to_string() const
     return builder.to_string();
 }
 
-String MethodDescriptor::to_string() const
+String MethodDescriptor::parameters_to_string() const
 {
     StringBuilder builder;
-
-    m_return_type.visit([&builder](Empty&) { builder.append("void"sv); },
-                        [&builder](FieldDescriptor& value) { builder.appendff("{}"sv, value); });
-
-    builder.append(" ("sv);
 
     for (auto i = 0; i < m_parameters.size(); i++)
     {
@@ -134,7 +129,19 @@ String MethodDescriptor::to_string() const
             builder.append(", "sv);
     }
 
-    builder.append(")");
+    return builder.to_string();
+}
+
+String MethodDescriptor::return_type_to_string() const
+{
+    return m_return_type.visit([](Empty&) { return String("void"); },
+                               [](FieldDescriptor& value) { return value.to_string(); });
+}
+
+String MethodDescriptor::to_string() const
+{
+    StringBuilder builder;
+    builder.appendff("{} ({})"sv, return_type_to_string(), parameters_to_string());
 
     return builder.to_string();
 }

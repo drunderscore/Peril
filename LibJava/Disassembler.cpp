@@ -205,7 +205,6 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& type = m_class_file.constant_pool()[index - 1];
                 instruction.appendff("{} "sv, index);
 
-                // Long and Double cannot appear in ldc
                 // Table 4.4-C. Loadable constant pool tags
                 type.downcast<Long, Double>().visit(
                     [&instruction](Long& value) { instruction.appendff("({})"sv, value); },
