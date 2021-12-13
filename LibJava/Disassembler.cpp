@@ -78,7 +78,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& name =
                     m_class_file.constant_pool()[type.get<ClassFile::Class>().name_index - 1].get<ClassFile::Utf8>();
 
-                instruction.appendff(" {} ("sv, index);
+                instruction.appendff(" #{} ("sv, index);
 
                 instruction.append(name.value);
                 instruction.append(')');
@@ -103,7 +103,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& class_name = m_class_file.constant_pool()[field_class.name_index - 1].get<ClassFile::Utf8>();
 
                 // FIXME: does it make sense to include the class name like this for non-statics?
-                instruction.appendff("{} ({}.{})"sv, index, class_name.value, field_name.value);
+                instruction.appendff("#{} ({}.{})"sv, index, class_name.value, field_name.value);
 
                 i += 2;
             }
@@ -152,7 +152,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 }
 
                 auto& type = m_class_file.constant_pool()[index - 1];
-                instruction.appendff("{} "sv, index);
+                instruction.appendff("#{} "sv, index);
 
                 // Long and Double cannot appear in ldc
                 // Table 4.4-C. Loadable constant pool tags
@@ -195,7 +195,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto index = code->code[i + 1] | code->code[i + 2];
 
                 auto& type = m_class_file.constant_pool()[index - 1];
-                instruction.appendff("{} "sv, index);
+                instruction.appendff("#{} "sv, index);
 
                 // Table 4.4-C. Loadable constant pool tags
                 type.downcast<Long, Double>().visit(
@@ -224,7 +224,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& name =
                     m_class_file.constant_pool()[type.get<ClassFile::Class>().name_index - 1].get<ClassFile::Utf8>();
 
-                instruction.appendff("{} ({}, {} dimension"sv, index, name.value, dimensions);
+                instruction.appendff("#{} ({}, {} dimension"sv, index, name.value, dimensions);
 
                 if (dimensions > 1)
                     instruction.append('s');
@@ -245,7 +245,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& name =
                     m_class_file.constant_pool()[type.get<ClassFile::Class>().name_index - 1].get<ClassFile::Utf8>();
 
-                instruction.appendff("{} ({})"sv, index, name.value);
+                instruction.appendff("#{} ({})"sv, index, name.value);
 
                 i += 2;
             }
@@ -326,7 +326,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 auto& method_class = m_class_file.constant_pool()[type.class_index - 1].get<ClassFile::Class>();
                 auto& class_name = m_class_file.constant_pool()[method_class.name_index - 1].get<ClassFile::Utf8>();
                 // FIXME: does it make sense to include the class name like this for non-statics?
-                instruction.appendff("{} ({}.{})"sv, index, class_name.value, method_name.value);
+                instruction.appendff("#{} ({}.{})"sv, index, class_name.value, method_name.value);
 
                 i += 2;
             }
