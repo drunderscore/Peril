@@ -8,6 +8,7 @@ include(FetchContent)
 include(cmake/FetchLagom.cmake)
 
 add_compile_options(-Werror=implicit-fallthrough)
+add_compile_options(-Werror=switch)
 add_compile_options(-Wno-literal-suffix)
 add_compile_options(-fno-gnu-keywords)
 add_subdirectory(LibJava)
