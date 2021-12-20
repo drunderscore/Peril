@@ -4,27 +4,16 @@
 #include <AK/String.h>
 #include <AK/Variant.h>
 #include <AK/Vector.h>
+#include <LibJava/Types.h>
 
 namespace Java
 {
-enum class DescriptorBaseType : u8
-{
-    Byte,
-    Char,
-    Double,
-    Float,
-    Integer,
-    Long,
-    Short,
-    Boolean
-};
-
 // TODO: Support 4.3.4 Signatures (types that have generics)
 
 class FieldDescriptor
 {
 public:
-    explicit FieldDescriptor(Variant<DescriptorBaseType, String> type, u8 array_dimensions = 0)
+    explicit FieldDescriptor(Variant<PrimitiveType, String> type, u8 array_dimensions = 0)
         : m_type(move(type)), m_array_dimensions(array_dimensions)
     {
     }
@@ -42,7 +31,7 @@ public:
     String to_string() const;
 
 private:
-    Variant<DescriptorBaseType, String> m_type;
+    Variant<PrimitiveType, String> m_type;
     u8 m_array_dimensions{};
 };
 
@@ -68,33 +57,6 @@ private:
 
 namespace AK
 {
-template<>
-struct Formatter<Java::DescriptorBaseType> : Formatter<String>
-{
-    ErrorOr<void> format(FormatBuilder& builder, const Java::DescriptorBaseType& value)
-    {
-        switch (value)
-        {
-            case Java::DescriptorBaseType::Byte:
-                return builder.put_literal("byte"sv);
-            case Java::DescriptorBaseType::Char:
-                return builder.put_literal("char"sv);
-            case Java::DescriptorBaseType::Double:
-                return builder.put_literal("double"sv);
-            case Java::DescriptorBaseType::Float:
-                return builder.put_literal("float"sv);
-            case Java::DescriptorBaseType::Integer:
-                return builder.put_literal("int"sv);
-            case Java::DescriptorBaseType::Long:
-                return builder.put_literal("long"sv);
-            case Java::DescriptorBaseType::Short:
-                return builder.put_literal("short"sv);
-            case Java::DescriptorBaseType::Boolean:
-                return builder.put_literal("boolean"sv);
-        }
-    }
-};
-
 template<>
 struct Formatter<Java::FieldDescriptor> : Formatter<String>
 {

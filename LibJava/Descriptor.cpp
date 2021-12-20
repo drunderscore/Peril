@@ -23,17 +23,17 @@ ErrorOr<FieldDescriptor> FieldDescriptor::try_parse(StringView value, size_t* or
                     return Error::from_string_literal("Field descriptor has too many array dimensions (over 255)");
                 break;
             case 'B':
-                return FieldDescriptor(DescriptorBaseType::Byte, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Byte, array_dimensions);
             case 'C':
-                return FieldDescriptor(DescriptorBaseType::Char, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Char, array_dimensions);
             case 'D':
-                return FieldDescriptor(DescriptorBaseType::Double, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Double, array_dimensions);
             case 'F':
-                return FieldDescriptor(DescriptorBaseType::Float, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Float, array_dimensions);
             case 'I':
-                return FieldDescriptor(DescriptorBaseType::Integer, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Int, array_dimensions);
             case 'J':
-                return FieldDescriptor(DescriptorBaseType::Long, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Long, array_dimensions);
             case 'L':
             {
                 // +1 to skip the 'L'
@@ -52,9 +52,9 @@ ErrorOr<FieldDescriptor> FieldDescriptor::try_parse(StringView value, size_t* or
             }
 
             case 'S':
-                return FieldDescriptor(DescriptorBaseType::Short, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Short, array_dimensions);
             case 'Z':
-                return FieldDescriptor(DescriptorBaseType::Boolean, array_dimensions);
+                return FieldDescriptor(PrimitiveType::Boolean, array_dimensions);
             default:
                 return Error::from_string_literal("Encountered unknown character in field descriptor");
         }
@@ -108,7 +108,7 @@ String FieldDescriptor::to_string() const
 {
     StringBuilder builder;
 
-    m_type.visit([&builder](DescriptorBaseType& value) { builder.appendff("{}"sv, value); },
+    m_type.visit([&builder](PrimitiveType& value) { builder.appendff("{}"sv, value); },
                  [&builder](String& value) { builder.append(value); });
 
     for (auto i = 0; i < m_array_dimensions; i++)
