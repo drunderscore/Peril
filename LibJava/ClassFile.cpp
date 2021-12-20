@@ -23,6 +23,8 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
         u8 tag;
         stream >> tag;
 
+        // For the constant primitive types, we can't say, for example, BigEndian<Integer>, because to take that integer
+        // back out we'd have to tell it the entire template of the DistinctNumber... so let's not do that.
         switch (tag)
         {
             case 1:
@@ -41,23 +43,23 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
             break;
             case 3:
             {
-                Integer constant;
+                BigEndian<i32> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(move(constant));
+                class_file.m_constant_pool.append(Integer(constant));
             }
             break;
             case 4:
             {
-                Float constant;
+                BigEndian<float> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(move(constant));
+                class_file.m_constant_pool.append(Float(constant));
             }
             break;
             case 5:
             {
-                Long constant;
+                BigEndian<i64> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(move(constant));
+                class_file.m_constant_pool.append(Long(constant));
                 // The constant_pool index n+1 must be valid but is considered unusable.
                 class_file.m_constant_pool.append({});
                 // ... the next usable entry in the table is located at index n+2
@@ -66,9 +68,9 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
             break;
             case 6:
             {
-                Double constant;
+                BigEndian<double> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(move(constant));
+                class_file.m_constant_pool.append(Double(constant));
                 // The constant_pool index n+1 must be valid but is considered unusable.
                 class_file.m_constant_pool.append({});
                 // ... the next usable entry in the table is located at index n+2

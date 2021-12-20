@@ -23,13 +23,13 @@ namespace Java
 
 // 2.2 Data Types
 // Although it is a primitive, the JVM specification does not explicitly define a boolean type.
-TYPEDEF_PRIMITIVE(BigEndian<i8>, Byte)
-TYPEDEF_PRIMITIVE(BigEndian<i16>, Short)
-TYPEDEF_PRIMITIVE(BigEndian<i32>, Integer)
-TYPEDEF_PRIMITIVE(BigEndian<i64>, Long)
-TYPEDEF_PRIMITIVE(BigEndian<u16>, Char)
-TYPEDEF_PRIMITIVE(BigEndian<float>, Float)
-TYPEDEF_PRIMITIVE(BigEndian<double>, Double)
+TYPEDEF_PRIMITIVE(i8, Byte)
+TYPEDEF_PRIMITIVE(i16, Short)
+TYPEDEF_PRIMITIVE(i32, Integer)
+TYPEDEF_PRIMITIVE(i64, Long)
+TYPEDEF_PRIMITIVE(u16, Char)
+TYPEDEF_PRIMITIVE(float, Float)
+TYPEDEF_PRIMITIVE(double, Double)
 
 enum class PrimitiveType : u8
 {
