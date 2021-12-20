@@ -61,7 +61,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
 
             case Opcode::dload:
             case Opcode::dstore:
-                instruction.appendff("{}"sv, code->code[i + 1] | code->code[i + 2]);
+                instruction.appendff("{}"sv, code->code[i + 1] << 8 | code->code[i + 2]);
                 i += 2;
                 break;
 
@@ -70,7 +70,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
                 // FIXME: CLion/clang-format hurt itself in confusion! (there is an odd space after the ::)
             case Opcode:: instanceof:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
                 auto& type = m_class_file.constant_pool()[index - 1];
                 if (!type.has<ClassFile::Class>())
                     return Error::from_string_literal("Expected index into constant pool to be a Class");
@@ -91,7 +91,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             case Opcode::putfield:
             case Opcode::putstatic:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
 
                 auto& type = m_class_file.constant_pool()[index - 1].get<ClassFile::FieldRef>();
 
@@ -133,7 +133,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             case Opcode::ifnull:
             case Opcode::jsr:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
                 auto absolute_index = i + index;
                 instruction.appendff("{} ({})"sv, index, absolute_index);
                 i += 2;
@@ -192,7 +192,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
 
             case Opcode::ldc2_w:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
 
                 auto& type = m_class_file.constant_pool()[index - 1];
                 instruction.appendff("#{} "sv, index);
@@ -214,7 +214,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
 
             case Opcode::multianewarray:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
                 auto dimensions = code->code[i + 3];
 
                 auto& type = m_class_file.constant_pool()[index - 1];
@@ -237,7 +237,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
 
             case Opcode::new_:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
                 auto& type = m_class_file.constant_pool()[index - 1];
                 if (!type.has<ClassFile::Class>())
                     return Error::from_string_literal("Expected index into constant pool to be a Class");
@@ -290,7 +290,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             break;
 
             case Opcode::sipush:
-                instruction.appendff("{}"sv, code->code[i + 1] | code->code[i + 2]);
+                instruction.appendff("{}"sv, code->code[i + 1] << 8 | code->code[i + 2]);
                 i += 2;
                 break;
 
@@ -316,7 +316,7 @@ ErrorOr<Vector<String>> Disassembler::disassemble(const ClassFile::MethodInfo& m
             case Opcode::invokestatic:
             case Opcode::invokevirtual:
             {
-                auto index = code->code[i + 1] | code->code[i + 2];
+                auto index = code->code[i + 1] << 8 | code->code[i + 2];
                 auto& type = m_class_file.constant_pool()[index - 1].get<ClassFile::MethodRef>();
 
                 auto& method_name_and_type =
