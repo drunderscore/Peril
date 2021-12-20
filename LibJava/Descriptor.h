@@ -42,8 +42,8 @@ public:
 
     static ErrorOr<MethodDescriptor> try_parse(StringView);
 
-    const Vector<FieldDescriptor> parameters() const { return m_parameters; }
-    const Variant<FieldDescriptor, Empty> return_type() const { return m_return_type; }
+    const Vector<FieldDescriptor>& parameters() const { return m_parameters; }
+    const Variant<FieldDescriptor, Empty>& return_type() const { return m_return_type; }
 
     String return_type_to_string() const;
     String parameters_to_string() const;
