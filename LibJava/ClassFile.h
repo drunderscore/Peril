@@ -208,6 +208,8 @@ public:
 
     static ErrorOr<ClassFile> try_parse(InputStream&);
 
+    AccessFlags access_flags() const { return m_access_flags; }
+
     const Vector<ConstantType>& constant_pool() const { return m_constant_pool; }
 
     const ClassFile::Class& this_class() const { return *m_this_class; }
@@ -219,6 +221,13 @@ public:
     const Vector<MethodInfo>& methods() const { return m_methods; }
 
     const Vector<Attribute>& attributes() const { return m_attributes; }
+
+    bool operator==(const ClassFile& other) const
+    {
+        auto& this_name = constant_pool()[this_class().name_index - 1].get<Java::ClassFile::Utf8>();
+        auto& other_name = other.constant_pool()[other.this_class().name_index - 1].get<Java::ClassFile::Utf8>();
+        return this_name.value == other_name.value;
+    }
 
 private:
     ClassFile() = default;
@@ -240,4 +249,17 @@ private:
 AK_ENUM_BITWISE_OPERATORS(ClassFile::AccessFlags);
 AK_ENUM_BITWISE_OPERATORS(ClassFile::FieldInfo::AccessFlags);
 AK_ENUM_BITWISE_OPERATORS(ClassFile::MethodInfo::AccessFlags);
+}
+
+namespace AK
+{
+template<>
+struct Traits<Java::ClassFile> : public GenericTraits<Java::ClassFile>
+{
+    static unsigned hash(const Java::ClassFile& value)
+    {
+        auto& name = value.constant_pool()[value.this_class().name_index - 1].get<Java::ClassFile::Utf8>();
+        return string_hash(name.value.characters(), name.value.length());
+    }
+};
 }

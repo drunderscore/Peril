@@ -2,6 +2,7 @@ add_library(LibJava SHARED
         ClassFile.cpp
         Descriptor.cpp
         Disassembler.cpp
+        VM.cpp
         )
 
 target_include_directories(LibJava SYSTEM PRIVATE

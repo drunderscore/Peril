@@ -4,6 +4,7 @@
 #include <AK/Format.h>
 #include <AK/Stream.h>
 #include <AK/Types.h>
+#include <AK/Variant.h>
 
 namespace Java
 {
@@ -49,6 +50,8 @@ enum class PrimitiveType : u8
 // TODO: reference type?
 
 #undef TYPEDEF_PRIMITIVE
+
+using Value = Variant<Byte, Short, Integer, Long, Char, Float, Double>;
 }
 
 namespace AK

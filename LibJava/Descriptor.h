@@ -24,6 +24,8 @@ public:
     // FIXME: Remove this pointer and find a more elegant solution. Pointers are the devil!
     static ErrorOr<FieldDescriptor> try_parse(StringView, size_t* original_descriptor_length = nullptr);
 
+    const Variant<PrimitiveType, String>& type() const { return m_type; }
+
     u8 array_dimensions() const { return m_array_dimensions; }
 
     void set_array_dimensions(u8 value) { m_array_dimensions = value; }
