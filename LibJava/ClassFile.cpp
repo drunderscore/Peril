@@ -50,9 +50,12 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
             break;
             case 4:
             {
-                BigEndian<float> constant;
+                // FIXME: BigEndian fails with floating-point types
+                BigEndian<u32> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(Float(constant));
+                auto constant_value = constant.operator unsigned int();
+                auto* constant_value_as_float = reinterpret_cast<float*>(&constant_value);
+                class_file.m_constant_pool.append(Float(*constant_value_as_float));
             }
             break;
             case 5:
@@ -68,9 +71,12 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
             break;
             case 6:
             {
-                BigEndian<double> constant;
+                // FIXME: BigEndian fails with floating-point types
+                BigEndian<u64> constant;
                 stream >> constant;
-                class_file.m_constant_pool.append(Double(constant));
+                auto constant_value = constant.operator unsigned long();
+                auto* constant_value_as_double = reinterpret_cast<double*>(&constant_value);
+                class_file.m_constant_pool.append(Double(*constant_value_as_double));
                 // The constant_pool index n+1 must be valid but is considered unusable.
                 class_file.m_constant_pool.append({});
                 // ... the next usable entry in the table is located at index n+2
