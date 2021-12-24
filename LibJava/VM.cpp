@@ -103,9 +103,27 @@ ErrorOr<void> VM::initialize_class(const ClassFile& class_file)
     return {};
 }
 
+ErrorOr<ClassFile*> VM::resolve_class(StringView name)
+{
+    if (m_resolved_classes.contains(name))
+        return &m_resolved_classes.find(name)->value;
+
+    auto externally_resolved_class = TRY(on_resolve_class_file_externally(name));
+    m_resolved_classes.set(name, move(externally_resolved_class));
+
+    auto& externally_resolved_class_file_ref = m_resolved_classes.find(name)->value;
+    TRY(initialize_class(externally_resolved_class_file_ref));
+    return &externally_resolved_class_file_ref;
+}
+
 ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Span<Value> arguments)
 {
-    TRY(initialize_class(class_file));
+    auto& class_name = class_file.constant_pool()[class_file.this_class().name_index - 1].get<Java::ClassFile::Utf8>();
+    if (!m_resolved_classes.contains(class_name.value))
+    {
+        m_resolved_classes.set(class_name.value, class_file);
+        TRY(initialize_class(class_file));
+    }
 
     const ClassFile::Code* code = nullptr;
 
@@ -140,6 +158,7 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
 
     Vector<Value> operand_stack;
 
+    auto program_counter_to_return_to = m_program_counter;
     m_program_counter = 0;
 
     while (m_program_counter < code->code.size())
@@ -544,25 +563,29 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
                 auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::MethodRef>();
+                auto& class_of_field = class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                auto& class_of_field_name =
+                    class_file.constant_pool()[class_of_field.name_index - 1].get<ClassFile::Utf8>();
 
-                // FIXME: don't assume the method is in this class file!
                 auto& static_method_to_invoke_name_and_type =
                     class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& static_method_to_invoke_name =
                     class_file.constant_pool()[static_method_to_invoke_name_and_type.name_index - 1]
                         .get<ClassFile::Utf8>();
-                auto& static_method_to_invoke_descriptor =
+                auto& static_method_to_invoke_descriptor_string =
                     class_file.constant_pool()[static_method_to_invoke_name_and_type.descriptor_index - 1]
                         .get<ClassFile::Utf8>();
 
-                auto static_method_to_invoke_resolved_descriptor =
-                    MethodDescriptor::try_parse(static_method_to_invoke_descriptor.value)
-                        .release_value_but_fixme_should_propagate_errors();
+                auto static_method_to_invoke_descriptor =
+                    TRY(MethodDescriptor::try_parse(static_method_to_invoke_descriptor_string.value));
 
                 const ClassFile::MethodInfo* static_method_to_invoke = nullptr;
 
-                for (auto& method : class_file.methods())
+                auto resolved_class_of_method = TRY(resolve_class(class_of_field_name.value));
+
+                for (auto& method : resolved_class_of_method->methods())
                 {
+                    // FIXME: Properly check return type and parameters of what we look up (overloading)
                     auto& name = class_file.constant_pool()[method.name_index - 1].get<ClassFile::Utf8>();
                     if (name.value == static_method_to_invoke_name.value)
                     {
@@ -574,18 +597,14 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
                 if (!static_method_to_invoke)
                     return Error::from_string_literal("Unable to find method to invoke with invokestatic");
 
-                auto program_counter_to_return_to = m_program_counter;
-
                 auto return_value =
                     TRY(call(class_file, *static_method_to_invoke,
-                             {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()}));
+                             {operand_stack.data(), static_method_to_invoke_descriptor.parameters().size()}));
 
-                m_program_counter = program_counter_to_return_to;
-
-                for (auto i = 0; i < static_method_to_invoke_resolved_descriptor.parameters().size(); i++)
+                for (auto i = 0; i < static_method_to_invoke_descriptor.parameters().size(); i++)
                     operand_stack.remove(0);
 
-                if (!static_method_to_invoke_resolved_descriptor.return_type().has<Empty>())
+                if (!static_method_to_invoke_descriptor.return_type().has<Empty>())
                     operand_stack.append(move(return_value));
 
                 m_program_counter += 2;
@@ -605,9 +624,6 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
                 m_program_counter += offset;
                 continue;
             }
-            case Opcode::return_:
-                // TODO: return null?
-                return Integer(0);
 
             case Opcode::if_icmpeq:
             {
@@ -742,10 +758,15 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
                 break;
             }
 
+            case Opcode::return_:
+                // TODO: return null?
+                m_program_counter = program_counter_to_return_to;
+                return Integer(0);
             case Opcode::ireturn:
             case Opcode::dreturn:
             case Opcode::freturn:
             case Opcode::lreturn:
+                m_program_counter = program_counter_to_return_to;
                 return operand_stack.take_first();
 
             case Opcode::ineg:
@@ -773,18 +794,18 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
                 auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
-                [[maybe_unused]] auto& class_of_field =
-                    class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                auto& class_of_field = class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                auto& class_of_field_name =
+                    class_file.constant_pool()[class_of_field.name_index - 1].get<ClassFile::Utf8>();
 
                 auto& field_name_and_type =
                     class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& field_name =
                     class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
-                // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                TRY(initialize_class(class_file));
+                auto resolved_class_of_field = TRY(resolve_class(class_of_field_name.value));
 
-                operand_stack.append(*m_static_data.find(class_file)->value.fields.get(field_name.value));
+                operand_stack.append(*m_static_data.find(*resolved_class_of_field)->value.fields.get(field_name.value));
 
                 m_program_counter += 2;
                 break;
@@ -794,18 +815,19 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
                 auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
-                [[maybe_unused]] auto& class_of_field =
-                    class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                auto& class_of_field = class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                auto& class_of_field_name =
+                    class_file.constant_pool()[class_of_field.name_index - 1].get<ClassFile::Utf8>();
 
                 auto& field_name_and_type =
                     class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& field_name =
                     class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
-                // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                TRY(initialize_class(class_file));
+                auto resolved_class_of_field = TRY(resolve_class(class_of_field_name.value));
 
-                m_static_data.find(class_file)->value.fields.set(field_name.value, operand_stack.take_first());
+                m_static_data.find(*resolved_class_of_field)
+                    ->value.fields.set(field_name.value, operand_stack.take_first());
 
                 m_program_counter += 2;
                 break;

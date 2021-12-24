@@ -25,6 +25,16 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     Java::VM vm;
 
+    vm.on_resolve_class_file_externally = [](auto name) -> ErrorOr<Java::ClassFile> {
+        outln("Resolving class {}", name);
+        auto resolving_class_file_file =
+            TRY(Core::File::open(String::formatted("{}.class", name), Core::OpenMode::ReadOnly));
+        auto class_file_contents = resolving_class_file_file->read_all();
+        InputMemoryStream resolving_class_file_stream(class_file_contents);
+
+        return Java::ClassFile::try_parse(resolving_class_file_stream);
+    };
+
     for (auto& method : class_file.methods())
     {
         auto& name = class_file.constant_pool()[method.name_index - 1].get<Java::ClassFile::Utf8>();

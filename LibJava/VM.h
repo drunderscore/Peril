@@ -1,5 +1,6 @@
 #pragma once
 
+#include <AK/Function.h>
 #include <AK/Vector.h>
 #include <LibJava/ClassFile.h>
 #include <LibJava/Types.h>
@@ -24,6 +25,8 @@ public:
 
     ErrorOr<Value> call(const ClassFile&, const ClassFile::MethodInfo&, Span<Value> arguments = {});
 
+    Function<ErrorOr<ClassFile>(StringView)> on_resolve_class_file_externally;
+
 private:
     struct Frame
     {
@@ -44,8 +47,10 @@ private:
     u16 m_program_counter{};
     Vector<Frame> m_stack;
     HashMap<ClassFile, StaticData> m_static_data;
+    HashMap<String, ClassFile> m_resolved_classes;
 
     ErrorOr<void> initialize_class(const ClassFile&);
+    ErrorOr<ClassFile*> resolve_class(StringView name);
 
     template<typename T>
     ALWAYS_INLINE static constexpr T add(Value&& a, Value&& b)
