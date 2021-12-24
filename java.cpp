@@ -43,7 +43,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
             if (descriptor.parameters().size() != 0)
                 return Error::from_string_literal("Method to execute must not take any parameters");
 
-            auto return_value = vm.call(class_file, method);
+            auto return_value = TRY(vm.call(class_file, method));
 
             // FIXME: is there no general integral type to string?
             outln("Return: {}",

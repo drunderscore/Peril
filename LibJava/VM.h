@@ -10,7 +10,7 @@ class VM
 {
 public:
     template<typename... Args>
-    Value call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Args... args)
+    ErrorOr<Value> call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Args... args)
     {
         if constexpr (sizeof...(Args) == 0)
             return call(class_file, method);
@@ -22,7 +22,7 @@ public:
         return call(class_file, method, arguments.span());
     }
 
-    Value call(const ClassFile&, const ClassFile::MethodInfo&, Span<Value> arguments = {});
+    ErrorOr<Value> call(const ClassFile&, const ClassFile::MethodInfo&, Span<Value> arguments = {});
 
 private:
     struct Frame
@@ -45,7 +45,7 @@ private:
     Vector<Frame> m_stack;
     HashMap<ClassFile, StaticData> m_static_data;
 
-    void initialize_class(const ClassFile&);
+    ErrorOr<void> initialize_class(const ClassFile&);
 
     template<typename T>
     ALWAYS_INLINE static constexpr T add(Value&& a, Value&& b)

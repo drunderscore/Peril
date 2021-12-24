@@ -4,10 +4,10 @@
 
 namespace Java
 {
-void VM::initialize_class(const ClassFile& class_file)
+ErrorOr<void> VM::initialize_class(const ClassFile& class_file)
 {
     if (m_static_data.contains(class_file))
-        return;
+        return {};
 
     StaticData static_data;
 
@@ -17,7 +17,7 @@ void VM::initialize_class(const ClassFile& class_file)
         {
             auto& name = class_file.constant_pool()[field.name_index - 1].get<ClassFile::Utf8>();
             auto& descriptor_string = class_file.constant_pool()[field.descriptor_index - 1].get<ClassFile::Utf8>();
-            auto descriptor = MUST(FieldDescriptor::try_parse(descriptor_string.value));
+            auto descriptor = TRY(FieldDescriptor::try_parse(descriptor_string.value));
 
             Optional<Value> initial_value;
 
@@ -33,7 +33,10 @@ void VM::initialize_class(const ClassFile& class_file)
                     [&initial_value](Double& value) { initial_value = value; });
             }
 
-            VERIFY(descriptor.type().has<PrimitiveType>());
+            // TODO: Support String ConstantValue
+            if (!descriptor.type().has<PrimitiveType>())
+                return Error::from_string_literal("No support for String ConstantValue");
+
             switch (descriptor.type().get<PrimitiveType>())
             {
                 case PrimitiveType::Byte:
@@ -70,7 +73,7 @@ void VM::initialize_class(const ClassFile& class_file)
                                                            : 0);
                     break;
                 default:
-                    VERIFY_NOT_REACHED();
+                    return Error::from_string_literal("Invalid primitive type in ConstantValue");
             }
         }
     }
@@ -84,20 +87,25 @@ void VM::initialize_class(const ClassFile& class_file)
         if (method_name.value == "<clinit>"sv)
         {
             auto& descriptor_string = class_file.constant_pool()[method.descriptor_index - 1].get<ClassFile::Utf8>();
-            auto descriptor = MUST(MethodDescriptor::try_parse(descriptor_string.value));
-            VERIFY(descriptor.return_type().has<Empty>());
+            auto descriptor = TRY(MethodDescriptor::try_parse(descriptor_string.value));
+
+            if (!descriptor.return_type().has<Empty>())
+                return Error::from_string_literal("Class initilization method must have no return value");
+
             // TODO: In a class file whose version number is 51.0 or above, the method has its
             //       ACC_STATIC flag set and takes no arguments (§4.6).
 
-            call(class_file, method);
+            TRY(call(class_file, method));
             break;
         }
     }
+
+    return {};
 }
 
-Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Span<Value> arguments)
+ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Span<Value> arguments)
 {
-    initialize_class(class_file);
+    TRY(initialize_class(class_file));
 
     const ClassFile::Code* code = nullptr;
 
@@ -110,7 +118,8 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
         }
     }
 
-    VERIFY(code);
+    if (!code)
+        return Error::from_string_literal("Method to execute has no Code attribute");
 
     Frame frame;
 
@@ -277,7 +286,8 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
                 else if (value.has<Float>())
                     operand_stack.append(value.get<Float>());
                 else
-                    VERIFY_NOT_REACHED();
+                    return Error::from_string_literal(
+                        "Missing implementation for types other than Integer and Float in ldc");
 
                 m_program_counter++;
                 break;
@@ -338,7 +348,7 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
                 else if (value.has<Double>())
                     operand_stack.append(value.get<Double>());
                 else
-                    VERIFY_NOT_REACHED();
+                    return Error::from_string_literal("Cannot use ldc2_w on types other than Long and Double");
 
                 m_program_counter += 2;
                 break;
@@ -561,13 +571,14 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
                     }
                 }
 
-                VERIFY(static_method_to_invoke);
+                if (!static_method_to_invoke)
+                    return Error::from_string_literal("Unable to find method to invoke with invokestatic");
 
                 auto program_counter_to_return_to = m_program_counter;
 
                 auto return_value =
-                    call(class_file, *static_method_to_invoke,
-                         {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()});
+                    TRY(call(class_file, *static_method_to_invoke,
+                             {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()}));
 
                 m_program_counter = program_counter_to_return_to;
 
@@ -771,7 +782,7 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
                     class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
                 // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                initialize_class(class_file);
+                TRY(initialize_class(class_file));
 
                 operand_stack.append(*m_static_data.find(class_file)->value.fields.get(field_name.value));
 
@@ -792,7 +803,7 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
                     class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
                 // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                initialize_class(class_file);
+                TRY(initialize_class(class_file));
 
                 m_static_data.find(class_file)->value.fields.set(field_name.value, operand_stack.take_first());
 
@@ -801,14 +812,12 @@ Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method,
             }
 
             default:
-                warnln("Unhandled opcode {}!", *opcode_names.get(opcode));
-                VERIFY_NOT_REACHED();
+                return Error::from_string_literal(String::formatted("Unhandled opcode {}", *opcode_names.get(opcode)));
         }
 
         m_program_counter++;
     }
 
-    warnln("Method code execution reached the end without returning!");
-    VERIFY_NOT_REACHED();
+    return Error::from_string_literal("Method code execution reached the end without returning");
 }
 }
