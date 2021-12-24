@@ -177,6 +177,8 @@ public:
         AccessFlags access_flags;
         BigEndian<u16> name_index;
         BigEndian<u16> descriptor_index;
+
+        Optional<Code*> code;
         Vector<Attribute> attributes;
     };
 

@@ -311,7 +311,13 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
 
             // FIXME: This should be fatal
             if (!attribute_or_error.is_error())
+            {
                 info.attributes.append(attribute_or_error.release_value());
+
+                auto& attribute_in_vector = info.attributes.last();
+                if (attribute_in_vector.has<Code>())
+                    info.code = info.attributes.last().get_pointer<Code>();
+            }
         }
 
         class_file.m_methods.append(move(info));

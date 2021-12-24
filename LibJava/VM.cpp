@@ -125,19 +125,10 @@ ErrorOr<Value> VM::call(const ClassFile& class_file, const ClassFile::MethodInfo
         TRY(initialize_class(class_file));
     }
 
-    const ClassFile::Code* code = nullptr;
-
-    for (auto& kv : method.attributes)
-    {
-        if (kv.has<ClassFile::Code>())
-        {
-            code = kv.get_pointer<ClassFile::Code>();
-            break;
-        }
-    }
-
-    if (!code)
+    if (!method.code.has_value())
         return Error::from_string_literal("Method to execute has no Code attribute");
+
+    auto code = method.code.value();
 
     Frame frame;
 
