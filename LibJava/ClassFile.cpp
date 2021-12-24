@@ -260,11 +260,21 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
         for (auto j = 0; j < attribute_count; j++)
         {
             BigEndian<u16> attribute_name_index;
-            BigEndian<u32> attribute_length;
             stream >> attribute_name_index;
-            stream >> attribute_length;
-            // FIXME: Read attribute data
-            stream.discard_or_error(attribute_length);
+
+            auto& name = class_file.m_constant_pool.at(attribute_name_index - 1).get<Utf8>();
+            // TODO: Verify this attribute is applicable to fields
+            auto attribute_or_error = class_file.try_parse_attribute(stream, name);
+
+            // FIXME: This should be fatal
+            if (!attribute_or_error.is_error())
+            {
+                info.attributes.append(attribute_or_error.release_value());
+
+                auto& attribute_in_vector = info.attributes.last();
+                if (attribute_in_vector.has<ConstantValue>())
+                    info.constant_value = info.attributes.last().get_pointer<ConstantValue>();
+            }
         }
 
         class_file.m_fields.append(move(info));
@@ -382,6 +392,13 @@ ErrorOr<ClassFile::Attribute> ClassFile::try_parse_attribute(InputStream& stream
         }
 
         return code;
+    }
+    else if (name.value == "ConstantValue"sv)
+    {
+        ConstantValue attribute;
+        stream >> attribute.constant_value_index;
+
+        return attribute;
     }
     else
     {

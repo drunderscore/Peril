@@ -131,7 +131,7 @@ public:
         // TODO: Attributes
     };
 
-    using Attribute = Variant<SourceFile, Code>;
+    using Attribute = Variant<SourceFile, Code, ConstantValue>;
 
     struct FieldInfo
     {
@@ -151,7 +151,9 @@ public:
         AccessFlags access_flags;
         BigEndian<u16> name_index;
         BigEndian<u16> descriptor_index;
-        // TODO: Attributes
+
+        Optional<ConstantValue*> constant_value;
+        Vector<Attribute> attributes;
     };
 
     struct MethodInfo
