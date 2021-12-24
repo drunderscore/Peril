@@ -47,6 +47,8 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
         // TODO: type safety! (store ops should do type checking)
         switch (opcode)
         {
+            case Opcode::nop:
+                break;
             case Opcode::iconst_m1:
                 operand_stack.append(Integer(-1));
                 break;
