@@ -471,10 +471,17 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
 
                 auto program_counter_to_return_to = m_program_counter;
 
-                call(*static_method_to_invoke,
-                     {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()});
+                auto return_value =
+                    call(*static_method_to_invoke,
+                         {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()});
 
                 m_program_counter = program_counter_to_return_to;
+
+                for (auto i = 0; i < static_method_to_invoke_resolved_descriptor.parameters().size(); i++)
+                    operand_stack.remove(0);
+
+                if (!static_method_to_invoke_resolved_descriptor.return_type().has<Empty>())
+                    operand_stack.append(move(return_value));
 
                 m_program_counter += 2;
                 break;
