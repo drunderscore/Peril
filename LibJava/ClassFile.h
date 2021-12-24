@@ -104,26 +104,6 @@ public:
         BigEndian<u16> name_index;
     };
 
-    struct StackMapTable
-    {
-    };
-
-    struct BootstrapMethods
-    {
-    };
-
-    struct NestHost
-    {
-    };
-
-    struct NestMembers
-    {
-    };
-
-    struct PermittedSubclasses
-    {
-    };
-
     struct SourceFile
     {
         BigEndian<u16> source_file_index;
