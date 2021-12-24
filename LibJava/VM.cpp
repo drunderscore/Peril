@@ -4,10 +4,11 @@
 
 namespace Java
 {
-VM::VM(ClassFile& class_file) : m_class_file(class_file) { initialize_class(class_file); }
-
-void VM::initialize_class(ClassFile& class_file)
+void VM::initialize_class(const ClassFile& class_file)
 {
+    if (m_static_data.contains(class_file))
+        return;
+
     StaticData static_data;
 
     for (auto& field : class_file.fields())
@@ -88,22 +89,16 @@ void VM::initialize_class(ClassFile& class_file)
             // TODO: In a class file whose version number is 51.0 or above, the method has its
             //       ACC_STATIC flag set and takes no arguments (§4.6).
 
-            call(method);
+            call(class_file, method);
             break;
         }
     }
 }
 
-void VM::initialize_class_if_needed(ClassFile& class_file)
+Value VM::call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Span<Value> arguments)
 {
-    if (m_static_data.contains(class_file))
-        return;
-
     initialize_class(class_file);
-}
 
-Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
-{
     const ClassFile::Code* code = nullptr;
 
     for (auto& kv : method.attributes)
@@ -275,7 +270,7 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
             case Opcode::ldc:
             {
                 auto value_index = code->code[m_program_counter + 1];
-                auto& value = m_class_file.constant_pool()[value_index - 1];
+                auto& value = class_file.constant_pool()[value_index - 1];
 
                 if (value.has<Integer>())
                     operand_stack.append(value.get<Integer>());
@@ -336,7 +331,7 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
             case Opcode::ldc2_w:
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
-                auto& value = m_class_file.constant_pool()[value_index - 1];
+                auto& value = class_file.constant_pool()[value_index - 1];
 
                 if (value.has<Long>())
                     operand_stack.append(value.get<Long>());
@@ -538,15 +533,16 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
             case Opcode::invokestatic:
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
-                auto& value = m_class_file.constant_pool()[value_index - 1].get<ClassFile::MethodRef>();
+                auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::MethodRef>();
 
+                // FIXME: don't assume the method is in this class file!
                 auto& static_method_to_invoke_name_and_type =
-                    m_class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
+                    class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& static_method_to_invoke_name =
-                    m_class_file.constant_pool()[static_method_to_invoke_name_and_type.name_index - 1]
+                    class_file.constant_pool()[static_method_to_invoke_name_and_type.name_index - 1]
                         .get<ClassFile::Utf8>();
                 auto& static_method_to_invoke_descriptor =
-                    m_class_file.constant_pool()[static_method_to_invoke_name_and_type.descriptor_index - 1]
+                    class_file.constant_pool()[static_method_to_invoke_name_and_type.descriptor_index - 1]
                         .get<ClassFile::Utf8>();
 
                 auto static_method_to_invoke_resolved_descriptor =
@@ -555,9 +551,9 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
 
                 const ClassFile::MethodInfo* static_method_to_invoke = nullptr;
 
-                for (auto& method : m_class_file.methods())
+                for (auto& method : class_file.methods())
                 {
-                    auto& name = m_class_file.constant_pool()[method.name_index - 1].get<ClassFile::Utf8>();
+                    auto& name = class_file.constant_pool()[method.name_index - 1].get<ClassFile::Utf8>();
                     if (name.value == static_method_to_invoke_name.value)
                     {
                         static_method_to_invoke = &method;
@@ -570,7 +566,7 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
                 auto program_counter_to_return_to = m_program_counter;
 
                 auto return_value =
-                    call(*static_method_to_invoke,
+                    call(class_file, *static_method_to_invoke,
                          {operand_stack.data(), static_method_to_invoke_resolved_descriptor.parameters().size()});
 
                 m_program_counter = program_counter_to_return_to;
@@ -765,19 +761,19 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
             case Opcode::getstatic:
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
-                auto& value = m_class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
+                auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
                 [[maybe_unused]] auto& class_of_field =
-                    m_class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                    class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
 
                 auto& field_name_and_type =
-                    m_class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
+                    class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& field_name =
-                    m_class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
+                    class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
                 // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                initialize_class_if_needed(m_class_file);
+                initialize_class(class_file);
 
-                operand_stack.append(*m_static_data.find(m_class_file)->value.fields.get(field_name.value));
+                operand_stack.append(*m_static_data.find(class_file)->value.fields.get(field_name.value));
 
                 m_program_counter += 2;
                 break;
@@ -786,19 +782,19 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
             case Opcode::putstatic:
             {
                 auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
-                auto& value = m_class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
+                auto& value = class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
                 [[maybe_unused]] auto& class_of_field =
-                    m_class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+                    class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
 
                 auto& field_name_and_type =
-                    m_class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
+                    class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
                 auto& field_name =
-                    m_class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
+                    class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
 
                 // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
-                initialize_class_if_needed(m_class_file);
+                initialize_class(class_file);
 
-                m_static_data.find(m_class_file)->value.fields.set(field_name.value, operand_stack.take_first());
+                m_static_data.find(class_file)->value.fields.set(field_name.value, operand_stack.take_first());
 
                 m_program_counter += 2;
                 break;

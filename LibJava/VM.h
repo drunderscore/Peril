@@ -9,22 +9,20 @@ namespace Java
 class VM
 {
 public:
-    VM(ClassFile& class_file);
-
     template<typename... Args>
-    Value call(const ClassFile::MethodInfo& method, Args... args)
+    Value call(const ClassFile& class_file, const ClassFile::MethodInfo& method, Args... args)
     {
         if constexpr (sizeof...(Args) == 0)
-            return call(method);
+            return call(class_file, method);
 
         Vector<Value> arguments;
         arguments.ensure_capacity(sizeof...(Args));
         (arguments.append(move(args)), ...);
 
-        return call(method, arguments.span());
+        return call(class_file, method, arguments.span());
     }
 
-    Value call(const ClassFile::MethodInfo&, Span<Value> arguments = {});
+    Value call(const ClassFile&, const ClassFile::MethodInfo&, Span<Value> arguments = {});
 
 private:
     struct Frame
@@ -44,12 +42,10 @@ private:
     // If the method currently being executed by the thread is native, the value of the Java
     // Virtual Machine's pc register is undefined.
     u16 m_program_counter{};
-    ClassFile& m_class_file;
     Vector<Frame> m_stack;
     HashMap<ClassFile, StaticData> m_static_data;
 
-    void initialize_class(ClassFile&);
-    void initialize_class_if_needed(ClassFile&);
+    void initialize_class(const ClassFile&);
 
     template<typename T>
     ALWAYS_INLINE static constexpr T add(Value&& a, Value&& b)

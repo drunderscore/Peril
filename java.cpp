@@ -23,7 +23,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
 
     auto class_file = TRY(Java::ClassFile::try_parse(class_file_stream));
 
-    Java::VM vm(class_file);
+    Java::VM vm;
 
     for (auto& method : class_file.methods())
     {
@@ -43,7 +43,7 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
             if (descriptor.parameters().size() != 0)
                 return Error::from_string_literal("Method to execute must not take any parameters");
 
-            auto return_value = vm.call(method);
+            auto return_value = vm.call(class_file, method);
 
             // FIXME: is there no general integral type to string?
             outln("Return: {}",
