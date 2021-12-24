@@ -4,6 +4,104 @@
 
 namespace Java
 {
+VM::VM(ClassFile& class_file) : m_class_file(class_file) { initialize_class(class_file); }
+
+void VM::initialize_class(ClassFile& class_file)
+{
+    StaticData static_data;
+
+    for (auto& field : class_file.fields())
+    {
+        if (has_flag(field.access_flags, ClassFile::FieldInfo::AccessFlags::Static))
+        {
+            auto& name = class_file.constant_pool()[field.name_index - 1].get<ClassFile::Utf8>();
+            auto& descriptor_string = class_file.constant_pool()[field.descriptor_index - 1].get<ClassFile::Utf8>();
+            auto descriptor = MUST(FieldDescriptor::try_parse(descriptor_string.value));
+
+            Optional<Value> initial_value;
+
+            if (field.constant_value.has_value())
+            {
+                auto& constant_pool_initial_value =
+                    class_file.constant_pool()[field.constant_value.value()->constant_value_index - 1];
+
+                constant_pool_initial_value.downcast<Integer, Float, Long, Double>().visit(
+                    [&initial_value](Integer& value) { initial_value = value; },
+                    [&initial_value](Float& value) { initial_value = value; },
+                    [&initial_value](Long& value) { initial_value = value; },
+                    [&initial_value](Double& value) { initial_value = value; });
+            }
+
+            VERIFY(descriptor.type().has<PrimitiveType>());
+            switch (descriptor.type().get<PrimitiveType>())
+            {
+                case PrimitiveType::Byte:
+                    // Booleans are just Bytes in disguise!
+                case PrimitiveType::Boolean:
+                    static_data.fields.set(
+                        name.value, initial_value.has_value() ? Byte(initial_value.value().get<Integer>().value()) : 0);
+                    break;
+                case PrimitiveType::Short:
+                    static_data.fields.set(name.value, initial_value.has_value()
+                                                           ? Short(initial_value.value().get<Integer>().value())
+                                                           : 0);
+                    break;
+                case PrimitiveType::Int:
+                    static_data.fields.set(name.value, initial_value.has_value()
+                                                           ? Integer(initial_value.value().get<Integer>().value())
+                                                           : 0);
+                    break;
+                case PrimitiveType::Long:
+                    static_data.fields.set(
+                        name.value, initial_value.has_value() ? Long(initial_value.value().get<Long>().value()) : 0);
+                    break;
+                case PrimitiveType::Char:
+                    static_data.fields.set(
+                        name.value, initial_value.has_value() ? Char(initial_value.value().get<Integer>().value()) : 0);
+                    break;
+                case PrimitiveType::Float:
+                    static_data.fields.set(
+                        name.value, initial_value.has_value() ? Float(initial_value.value().get<Float>().value()) : 0);
+                    break;
+                case PrimitiveType::Double:
+                    static_data.fields.set(name.value, initial_value.has_value()
+                                                           ? Double(initial_value.value().get<Double>().value())
+                                                           : 0);
+                    break;
+                default:
+                    VERIFY_NOT_REACHED();
+            }
+        }
+    }
+
+    m_static_data.set(class_file, move(static_data));
+
+    for (auto& method : class_file.methods())
+    {
+        auto& method_name = class_file.constant_pool()[method.name_index - 1].get<ClassFile::Utf8>();
+
+        if (method_name.value == "<clinit>"sv)
+        {
+            auto& descriptor_string = class_file.constant_pool()[method.descriptor_index - 1].get<ClassFile::Utf8>();
+            auto descriptor = MUST(MethodDescriptor::try_parse(descriptor_string.value));
+            VERIFY(descriptor.return_type().has<Empty>());
+            // TODO: In a class file whose version number is 51.0 or above, the method has its
+            //       ACC_STATIC flag set and takes no arguments (§4.6).
+
+            call(method);
+            break;
+        }
+    }
+}
+
+void VM::initialize_class_if_needed(ClassFile& class_file)
+{
+    if (m_static_data.contains(class_file))
+        return;
+
+    initialize_class(class_file);
+}
+
 Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
 {
     const ClassFile::Code* code = nullptr;
@@ -661,8 +759,50 @@ Value VM::call(const ClassFile::MethodInfo& method, Span<Value> arguments)
                 break;
 
             case Opcode::pop:
-                operand_stack.take_first();
+                operand_stack.remove(0);
                 break;
+
+            case Opcode::getstatic:
+            {
+                auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
+                auto& value = m_class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
+                [[maybe_unused]] auto& class_of_field =
+                    m_class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+
+                auto& field_name_and_type =
+                    m_class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
+                auto& field_name =
+                    m_class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
+
+                // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
+                initialize_class_if_needed(m_class_file);
+
+                operand_stack.append(*m_static_data.find(m_class_file)->value.fields.get(field_name.value));
+
+                m_program_counter += 2;
+                break;
+            }
+
+            case Opcode::putstatic:
+            {
+                auto value_index = code->code[m_program_counter + 1] << 8 | code->code[m_program_counter + 2];
+                auto& value = m_class_file.constant_pool()[value_index - 1].get<ClassFile::FieldRef>();
+                [[maybe_unused]] auto& class_of_field =
+                    m_class_file.constant_pool()[value.class_index - 1].get<ClassFile::Class>();
+
+                auto& field_name_and_type =
+                    m_class_file.constant_pool()[value.name_and_type_index - 1].get<ClassFile::NameAndType>();
+                auto& field_name =
+                    m_class_file.constant_pool()[field_name_and_type.name_index - 1].get<ClassFile::Utf8>();
+
+                // TODO: resolve and initialize class_of_field (don't assume it's in our class!)
+                initialize_class_if_needed(m_class_file);
+
+                m_static_data.find(m_class_file)->value.fields.set(field_name.value, operand_stack.take_first());
+
+                m_program_counter += 2;
+                break;
+            }
 
             default:
                 warnln("Unhandled opcode {}!", *opcode_names.get(opcode));

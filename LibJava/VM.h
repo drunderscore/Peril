@@ -9,7 +9,7 @@ namespace Java
 class VM
 {
 public:
-    VM(ClassFile& class_file) : m_class_file(class_file) {}
+    VM(ClassFile& class_file);
 
     template<typename... Args>
     Value call(const ClassFile::MethodInfo& method, Args... args)
@@ -33,6 +33,11 @@ private:
         Vector<Value> locals;
     };
 
+    struct StaticData
+    {
+        HashMap<String, Value> fields;
+    };
+
     // 2.5.1
     // If that method is not native, the pc register contains the address of the Java Virtual Machine instruction
     // currently being executed.
@@ -41,6 +46,10 @@ private:
     u16 m_program_counter{};
     ClassFile& m_class_file;
     Vector<Frame> m_stack;
+    HashMap<ClassFile, StaticData> m_static_data;
+
+    void initialize_class(ClassFile&);
+    void initialize_class_if_needed(ClassFile&);
 
     template<typename T>
     ALWAYS_INLINE static constexpr T add(Value&& a, Value&& b)
