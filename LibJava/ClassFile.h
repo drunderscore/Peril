@@ -196,9 +196,16 @@ public:
 
     const Vector<ConstantType>& constant_pool() const { return m_constant_pool; }
 
-    const ClassFile::Class& this_class() const { return *m_this_class; }
+    const ClassFile::Class& this_class() const { return m_constant_pool[m_this_class - 1].get<Class>(); }
 
-    const ClassFile::Class& super_class() const { return *m_super_class; }
+    const ClassFile::Class& super_class() const { return m_constant_pool[m_super_class - 1].get<Class>(); }
+
+    // There is only ONE class that will not have a super class, which is the java.lang.Object
+    // It doesn't really pay to make super_class() to return an Optional<Class*> (it makes future implementation ugly,
+    // and trying to take it out sucks because you need to deref it twice), and we can't return an Optional<Class&>, so
+    // let's keep it pretty by just having this helper on the VERY unlikely off-chance you are working on the
+    // java.lang.Object.
+    bool has_super_class() const { return m_super_class != 0; }
 
     const Vector<FieldInfo>& fields() const { return m_fields; }
 
@@ -220,8 +227,8 @@ private:
     BigEndian<u16> m_major_version;
     Vector<ConstantType> m_constant_pool;
     AccessFlags m_access_flags{};
-    Class* m_this_class{};
-    Class* m_super_class{};
+    u16 m_this_class{};
+    u16 m_super_class{};
     Vector<Class*> m_interfaces;
     Vector<FieldInfo> m_fields;
     Vector<MethodInfo> m_methods;

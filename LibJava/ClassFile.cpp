@@ -187,37 +187,8 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
     stream >> this_class;
     stream >> super_class;
     class_file.m_access_flags = static_cast<AccessFlags>(access_flags.operator unsigned short());
-    auto& this_class_variant = class_file.m_constant_pool.at(this_class - 1);
-    auto& super_class_variant = class_file.m_constant_pool.at(super_class - 1);
-
-    // The constant_pool entry at that index must be a
-    // CONSTANT_Class_info structure (§4.4.1) representing the class or interface
-    // defined by this class file.
-    if (!this_class_variant.has<Class>())
-        return Error::from_string_literal("This class index into constant pool is not a Class");
-
-    if (!class_file.m_constant_pool.at(this_class_variant.get<Class>().name_index - 1).has<Utf8>())
-        return Error::from_string_literal("This class name index into constant pool is not a Utf8");
-
-    class_file.m_this_class = this_class_variant.get_pointer<Class>();
-
-    // NOTE: The index here CAN be zero in the case we are defining the java.lang.Object class
-    // In which case, we don't have a super class.
-    // For interfaces, this is never the case.
-    if (super_class != 0)
-    {
-        if (!super_class_variant.has<Class>())
-            return Error::from_string_literal("Super class index into constant pool is not a Class");
-
-        if (!class_file.m_constant_pool.at(super_class_variant.get<Class>().name_index - 1).has<Utf8>())
-            return Error::from_string_literal("Super class name index into constant pool is not a Utf8");
-
-        class_file.m_super_class = super_class_variant.get_pointer<Class>();
-
-        // TODO: Neither the direct superclass nor any of its
-        //       superclasses may have the ACC_FINAL flag set in the access_flags item of its
-        //       ClassFile structure.
-    }
+    class_file.m_this_class = this_class;
+    class_file.m_super_class = super_class;
 
     BigEndian<u16> interfaces_count;
     stream >> interfaces_count;
