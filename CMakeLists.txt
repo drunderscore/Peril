@@ -14,9 +14,9 @@ add_compile_options(-fno-gnu-keywords)
 add_subdirectory(LibJava)
 
 add_executable(javadisassembler javadisassembler.cpp)
-target_link_libraries(javadisassembler PRIVATE Lagom::Core Lagom::Main LibJava)
+target_link_libraries(javadisassembler PRIVATE Lagom::Core Lagom::Main Java)
 target_include_directories(javadisassembler PRIVATE ${PROJECT_SOURCE_DIR})
 
 add_executable(java java.cpp)
-target_link_libraries(java PRIVATE Lagom::Core Lagom::Main LibJava)
+target_link_libraries(java PRIVATE Lagom::Core Lagom::Main Java)
 target_include_directories(java PRIVATE ${PROJECT_SOURCE_DIR})
