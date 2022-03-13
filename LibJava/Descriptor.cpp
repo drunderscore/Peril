@@ -108,8 +108,8 @@ String FieldDescriptor::to_string() const
 {
     StringBuilder builder;
 
-    m_type.visit([&builder](PrimitiveType& value) { builder.appendff("{}"sv, value); },
-                 [&builder](String& value) { builder.append(value); });
+    m_type.visit([&builder](const PrimitiveType& value) { builder.appendff("{}"sv, value); },
+                 [&builder](const String& value) { builder.append(value); });
 
     for (auto i = 0; i < m_array_dimensions; i++)
         builder.append("[]"sv);
@@ -134,8 +134,8 @@ String MethodDescriptor::parameters_to_string() const
 
 String MethodDescriptor::return_type_to_string() const
 {
-    return m_return_type.visit([](Empty&) { return String("void"); },
-                               [](FieldDescriptor& value) { return value.to_string(); });
+    return m_return_type.visit([](Empty) { return String("void"); },
+                               [](const FieldDescriptor& value) { return value.to_string(); });
 }
 
 String MethodDescriptor::to_string() const

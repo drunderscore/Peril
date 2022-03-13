@@ -32,7 +32,7 @@ ErrorOr<ClassFile> ClassFile::try_parse(InputStream& stream)
                 BigEndian<u16> length;
                 stream >> length;
 
-                auto buffer = *ByteBuffer::create_uninitialized(length);
+                auto buffer = TRY(ByteBuffer::create_uninitialized(length));
                 stream >> buffer;
 
                 Utf8 constant;
